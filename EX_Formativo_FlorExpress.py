@@ -8,23 +8,23 @@ bodega = {};
 
 # Creamos las functions a utilizar;
 
-def unidades_tipo (tipo):
-
-  tipo = str(input("\nPor favor, digite el tipo de arreglo: ")); 
-
-  # Ver si la estructura de el for in de la linea 162 sirve
-
-    
-
 def validacion_codigo ():
+  
+  # Solicitamos codigo;
 
   codigo_validacion = str(input("\nPor favor, digite el codigo del arreglo: ")); 
 
+  # Ocupamos len para filtrar; 
+
   codigo_validacion_len = len(codigo_validacion); 
 
-  if codigo_validacion.strip() and codigo_validacion.find("") != arreglo and  codigo_validacion_len > 1:
+  # Si las condiciones se cumplen retorna el valor, de lo contrario retorna false;
 
-    return True;  
+  if codigo_validacion.strip() and codigo_validacion.find("") != arreglo and codigo_validacion_len > 1:
+
+    return codigo_validacion;  
+
+  return False; 
 
 def validacion_nombre ():
 
@@ -34,7 +34,9 @@ def validacion_nombre ():
 
   if nombre_validacion.strip() and nombre_validacion_len > 1:
 
-    return True; 
+    return nombre_validacion; 
+
+  return False; 
 
 def validacion_tipo ():
 
@@ -44,7 +46,9 @@ def validacion_tipo ():
 
   if tipo_validacion.strip() and tipo_validacion_len > 1:
 
-    return True; 
+    return tipo_validacion; 
+
+  return False; 
 
 def validacion_color_principal ():
 
@@ -54,7 +58,9 @@ def validacion_color_principal ():
 
   if color_principal_validacion.strip() and color_principal_validacion_len > 1:
 
-    return True; 
+    return color_principal_validacion; 
+
+  return False; 
 
 def validacion_tamaño ():
 
@@ -62,7 +68,9 @@ def validacion_tamaño ():
 
   if tamaño_validacion.strip() and tamaño_validacion == "S" or tamaño_validacion == "M" or tamaño_validacion == "L":
 
-    return True; 
+    return tamaño_validacion; 
+
+  return False; 
 
 def validacion_incluye_tarjeta ():
 
@@ -86,7 +94,9 @@ def validacion_temporada ():
 
   if temporada_validacion.strip() and temporada_validacion_len > 1:
 
-    return True; 
+    return temporada_validacion; 
+
+  return False; 
 
 def validacion_precio ():
 
@@ -94,7 +104,9 @@ def validacion_precio ():
 
   if precio_validacion > 0:
 
-    return True; 
+    return precio_validacion; 
+
+  return False; 
 
 def validacion_unidades ():
 
@@ -102,10 +114,13 @@ def validacion_unidades ():
 
   if unidades_validacion >= 0:
 
-    return True; 
+    return unidades_validacion; 
 
+  return False; 
 
 def agregar_arreglo ():
+
+  # Se pasan las functions a una nueva variable para ser validadas;
 
   codigo = validacion_codigo(); 
 
@@ -124,8 +139,10 @@ def agregar_arreglo ():
   precio = validacion_precio(); 
 
   unidades = validacion_unidades(); 
+
+  # Si la condicion se cumple crea los siguientes diccionarios / objetos;
   
-  if codigo and nombre and tipo and color_principal and tamaño and incluye_tarjeta and temporada and precio and unidades == True:
+  if codigo and nombre and tipo and color_principal and tamaño and incluye_tarjeta and temporada and precio and unidades != False:
 
     bodega = {
 
@@ -136,6 +153,8 @@ def agregar_arreglo ():
       "Unidades": unidades
 
     }
+
+    # el objeto / diccionario arreglo contiene a bodega dentro como atributo, por eso se define antes bodega;
 
     arreglo = {
 
@@ -161,15 +180,21 @@ def agregar_arreglo ():
 
     }
 
+    # Se crea un for in para recorrer bodega dentro de arreglo en busqueda del codigo;
+
     for bodega in arreglo:
 
-      if bodega.find(f"{codigo}") != codigo:
+      # Si el codigo no existem se agrega el arreglo y retorna true;
 
+      if bodega.find(f"{codigo}") != codigo:
+        
         arreglos.append(arreglo); 
 
         print("\n¡Arreglo agregado!"); 
 
         return True; 
+    
+      # De lo contrario avisa al usuario que ya existe un arreglo con ese codigo y retorna false;
 
       else:
 
@@ -177,10 +202,36 @@ def agregar_arreglo ():
 
         return False; 
 
+# Se crea la function y se pasa el parametro de tipo;
+
+def unidades_por_tipo(tipo):
+
+  # Se crea una variable con un valor inicial;
+
+  total_unidades = 0; 
+
+  # Se recorre arreglo en arreglos;
+
+  for arreglo in arreglos:
+
+    # Si el atributo "Tipo" dentro de arreglo es igual al del parametro;
+
+    if arreglo["Tipo"].lower() == tipo.strip().lower():
+
+      # Se acumula con los que existen en el atributo "Bodega";
+
+      total_unidades += arreglo["Bodega"]["Unidades"]; 
+  
+  # Y se imprime por consola;
+
+  print(f"\nEl total de unidades disponibles es: {total_unidades}"); 
+
+
 def salir_menu ():
 
-  print("\nPrograma finalizado."); 
-
+  print("\nPrograma finalizado.");  
+ 
+# Bucle menu;
 
 while True:
 
@@ -190,23 +241,39 @@ while True:
   print("3. Actualizar precio de arreglo"); 
   print("4. Agregar arreglo"); 
   print("5. Eliminar arreglo"); 
-  print("5. Salir"); 
+  print("6. Salir"); 
+
+  # Intenta solicitar una opcion;
 
   try:
 
     opcion = int(input("\nPor favor, digite una opcion: ")); 
-  
 
-    if opcion == 4:
+    # Si opc 1 se solicita ingresar el tipo a consultar y retorna la function con el parametro;
+  
+    if opcion == 1:
+
+      tipo_buscado = str(input("\nIngrese el tipo de arreglo a consultar: ")); 
+    
+      unidades_por_tipo(tipo_buscado); 
+    
+    # Si opc 4 se solicitan info para agregar el arreglo y muestra los que hay en consola;
+    
+    elif opcion == 4:
 
       agregar_arreglo(); 
-  
-    if opcion == 6:
+    
+      print(f"\n{arreglos}"); 
+
+    # Si opc 6 muestra el mensaje de finalizacion y corta el bucle;
+     
+    elif opcion == 6:
 
       salir_menu(); 
   
       break; 
-
+  
+  # Manejo de errores;
 
   except ValueError:
 
