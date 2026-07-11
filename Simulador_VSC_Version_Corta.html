@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Studio Code - Simulador de Práctica (Acortado)</title>
+    <style>
+        :root {
+            --bg-window: #181818;
+            --bg-editor: #1e1e1e;
+            --bg-sidebar: #252526;
+            --bg-activity: #333333;
+            --bg-tab-active: #1e1e1e;
+            --bg-tab-inactive: #2d2d2d;
+            --bg-status: #007acc;
+            --border-color: #3c3c3c;
+            
+            /* Colores de validación */
+            --text-correct: #4ec9b0;     
+            --text-incorrect: #ffffff;   
+            --bg-incorrect: #f44747;     
+            --pending-opacity: 0.0;
+            --text-pending: rgba(255, 255, 255, var(--pending-opacity)); 
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-window);
+            color: #cccccc;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .title-bar {
+            background-color: var(--bg-sidebar);
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #a6a6a6;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .window-controls {
+            position: absolute;
+            left: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-red { background-color: #ff5f56; }
+        .dot-yellow { background-color: #ffbd2e; }
+        .dot-green { background-color: #27c93f; }
+
+        .main-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .activity-bar {
+            width: 48px;
+            background-color: var(--bg-activity);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            gap: 20px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar-title {
+            padding: 10px 20px;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            color: #bbbbbb;
+            text-transform: uppercase;
+        }
+
+        .file-tree {
+            padding: 5px 0;
+        }
+
+        .file-item {
+            padding: 6px 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+        }
+
+        .editor-workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-editor);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tabs-container {
+            background-color: var(--bg-sidebar);
+            height: 35px;
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab {
+            background-color: var(--bg-tab-active);
+            color: #ffffff;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            border-right: 1px solid var(--border-color);
+            border-top: 1px solid #007acc;
+        }
+
+        .editor-core {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            padding-top: 10px;
+        }
+
+        .line-numbers {
+            width: 45px;
+            font-family: 'Consolas', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #858585;
+            text-align: right;
+            padding-right: 12px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .typing-viewport {
+            flex: 1;
+            position: relative;
+            overflow: auto; 
+        }
+
+        .hidden-textarea, .visual-display {
+            margin: 0;
+            padding: 0 10px 20px 0;
+            font-family: 'Consolas', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre;
+            border: none;
+            outline: none;
+            background: transparent;
+            box-sizing: border-box;
+        }
+
+        .hidden-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            color: transparent;
+            caret-color: transparent; /* CORRECCIÓN: Evita el cursor fantasma nativo */
+            z-index: 2;
+            resize: none;
+            overflow: hidden; 
+        }
+
+        .visual-display {
+            position: relative; 
+            width: 100%;
+            height: auto;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden; 
+        }
+
+        .pending {
+            color: var(--text-pending);
+        }
+
+        .correct {
+            color: var(--text-correct);
+        }
+
+        .incorrect {
+            color: var(--text-incorrect);
+            background-color: var(--bg-incorrect);
+        }
+
+        .incorrect-newline {
+            background-color: rgba(244, 71, 71, 0.4);
+            border-right: 2px solid #f44747;
+        }
+
+        /* CORRECCIÓN: Nuevo cursor desacoplado de ancho cero sin efectos colaterales */
+        .visual-cursor {
+            display: inline-block;
+            width: 0;
+            position: relative;
+            vertical-align: baseline;
+        }
+
+        .visual-cursor::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 2px;
+            height: 18px;
+            background-color: #007acc;
+            box-shadow: 0 0 4px #007acc;
+            animation: blink-cursor 1s step-end infinite;
+        }
+
+        @keyframes blink-cursor {
+            from, to { background-color: transparent; box-shadow: none; }
+            50% { background-color: #007acc; box-shadow: 0 0 4px #007acc; }
+        }
+
+        .code-comment {
+            color: #6a9955;
+            font-style: italic;
+        }
+
+        .controls-container {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-control {
+            color: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-reference {
+            background-color: #0e639c;
+            border-color: #1177bb;
+        }
+
+        .btn-reference:hover {
+            background-color: #1177bb;
+        }
+
+        .btn-reset {
+            background-color: #333333;
+        }
+
+        .btn-reset:hover {
+            background-color: #444444;
+        }
+
+        .status-bar {
+            background-color: var(--bg-status);
+            height: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 12px;
+            color: #ffffff;
+            z-index: 5;
+            user-select: none;
+        }
+
+        .status-block {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .reference-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reference-modal {
+            background: #1e1e1e;
+            border: 1px solid #3c3c3c;
+            width: 85%;
+            max-width: 850px;
+            height: 80%;
+            max-height: 650px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+
+        .modal-header {
+            background: #252526;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3c3c3c;
+        }
+
+        .modal-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #cccccc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close-btn {
+            background: #f44747;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .modal-close-btn:hover {
+            background: #ff5555;
+        }
+
+        .modal-body {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            background: #1e1e1e;
+        }
+
+        .modal-body pre {
+            margin: 0;
+            font-family: 'Consolas', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #d4d4d4;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="title-bar">
+        <div class="window-controls">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+        </div>
+        <div>practica.py - Visual Studio Code Simulator</div>
+    </div>
+
+    <div class="main-body">
+        <div class="activity-bar">
+            <div class="activity-icon" style="color: white;">📄</div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-title">Explorador</div>
+            <div class="file-tree">
+                <div class="file-item">🐍 practica.py</div>
+            </div>
+        </div>
+
+        <div class="editor-workspace" onclick="focusTextArea()">
+            <div class="tabs-container">
+                <div class="tab">🐍 practica.py</div>
+            </div>
+
+            <div class="editor-core">
+                <div class="line-numbers" id="lineNumbers"></div>
+                <div class="typing-viewport" id="typingViewport">
+                    <textarea class="hidden-textarea" id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></textarea>
+                    <pre class="visual-display" id="codeOverlay"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-container">
+        <div class="btn-control" style="background-color: #2d2d2d; gap: 8px; cursor: default;">
+            <label for="transparencySlider" style="cursor: pointer; user-select: none;">Trasparencia Guía:</label>
+            <input type="range" id="transparencySlider" min="0" max="0.8" step="0.1" value="0" style="cursor: pointer; width: 80px;">
+        </div>
+        <button class="btn-control btn-reference" onclick="toggleReference()">👁 Mostrar Código (Guía)</button>
+        <button class="btn-control btn-reset" onclick="resetSimulator()">Reiniciar Progreso</button>
+    </div>
+
+    <div class="reference-overlay" id="referenceModal" onclick="handleOverlayClick(event)">
+        <div class="reference-modal">
+            <div class="modal-header">
+                <div class="modal-title">👁 Código de Referencia / Acordeón (Presiona ESC para cerrar)</div>
+                <button class="modal-close-btn" onclick="toggleReference()">Cerrar</button>
+            </div>
+            <div class="modal-body">
+                <pre id="referenceContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-block">
+            <div class="stat">👁 Modo Memoria Real (Lienzo en blanco)</div>
+            <div class="stat">Errores actuales: <strong id="errorLabel" style="color: #ff9e9e;">0</strong></div>
+        </div>
+        <div class="status-block">
+            <div class="stat">Progreso: <strong id="progressLabel">0%</strong></div>
+            <div class="stat">Python</div>
+        </div>
+    </div>
+
+    <script>
+        const targetCode = `def unidades_por_tipo(tipo):
+
+  # Se crea una variable con un valor inicial;
+
+  total_unidades = 0; 
+
+  # Se recorre arreglo en arreglos;
+
+  for arreglo in arreglos:
+
+    # Si el atributo "Tipo" dentro de arreglo es igual al del parametro;
+
+    if arreglo["Tipo"].lower() == tipo.strip().lower():
+
+      # Se acumula con los que existen en el atributo "Bodega";
+
+      total_unidades += arreglo["Bodega"]["Unidades"]; 
+  
+  # Y se imprime por consola;
+
+  print(f"\\nEl total de unidades disponibles es: {total_unidades}");`;
+
+        const editorTx = document.getElementById('codeEditor');
+        const overlayPre = document.getElementById('codeOverlay');
+        const lineNumbersDiv = document.getElementById('lineNumbers');
+        const typingViewport = document.getElementById('typingViewport');
+        const errorLabel = document.getElementById('errorLabel');
+        const progressLabel = document.getElementById('progressLabel');
+        const referenceModal = document.getElementById('referenceModal');
+        const referenceContent = document.getElementById('referenceContent');
+        const transparencySlider = document.getElementById('transparencySlider');
+
+        const isCommentChar = new Array(targetCode.length).fill(false);
+        function initCommentMapping() {
+            const lines = targetCode.split('\n');
+            let offset = 0;
+            lines.forEach(line => {
+                const isCommentLine = line.trim().startsWith('#');
+                for (let j = 0; j < line.length; j++) {
+                    isCommentChar[offset + j] = isCommentLine;
+                }
+                if (offset + line.length < targetCode.length) {
+                    isCommentChar[offset + line.length] = isCommentLine; 
+                }
+                offset += line.length + 1;
+            });
+        }
+
+        function focusTextArea() {
+            if (referenceModal.style.display !== 'flex') {
+                editorTx.focus();
+            }
+        }
+
+        window.onload = function() {
+            initCommentMapping();
+            setupLineNumbers();
+            renderInitialText();
+            focusTextArea();
+        };
+
+        function setupLineNumbers() {
+            const totalLines = targetCode.split('\n').length;
+            let linesHtml = '';
+            for (let i = 1; i <= totalLines; i++) {
+                linesHtml += '<div>' + i + '</div>';
+            }
+            lineNumbersDiv.innerHTML = linesHtml;
+        }
+
+        function renderInitialText() {
+            let output = '';
+            let cursorPlaced = false;
+            for (let i = 0; i < targetCode.length; i++) {
+                if (isCommentChar[i]) {
+                    output += '<span class="code-comment">' + escapeHTML(targetCode[i]) + '</span>';
+                } else {
+                    if (!cursorPlaced) {
+                        output += '<span class="visual-cursor"></span>';
+                        cursorPlaced = true;
+                    }
+                    output += '<span class="pending">' + escapeHTML(targetCode[i]) + '</span>';
+                }
+            }
+            overlayPre.innerHTML = output;
+        }
+
+        editorTx.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const value = this.value;
+                this.value = value.substring(0, start) + "  " + value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 2;
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (referenceModal.style.display === 'flex') {
+                    toggleReference();
+                }
+            }
+        });
+
+        typingViewport.addEventListener('scroll', function() {
+            lineNumbersDiv.scrollTop = this.scrollTop;
+        });
+
+        transparencySlider.addEventListener('input', function() {
+            document.documentElement.style.setProperty('--pending-opacity', this.value);
+        });
+
+        editorTx.addEventListener('input', function() {
+            const userInput = this.value;
+            let formattedHTML = '';
+            let errorCount = 0;
+            let inputIdx = 0;
+            let cursorInjected = false;
+
+            for (let i = 0; i < targetCode.length; i++) {
+                if (isCommentChar[i]) {
+                    formattedHTML += '<span class="code-comment">' + escapeHTML(targetCode[i]) + '</span>';
+                } else {
+                    if (inputIdx < userInput.length) {
+                        if (userInput[inputIdx] === targetCode[i]) {
+                            formattedHTML += '<span class="correct">' + escapeHTML(targetCode[i]) + '</span>';
+                        } else {
+                            errorCount++;
+                            if (targetCode[i] === '\n') {
+                                formattedHTML += '<span class="incorrect-newline">↵\n</span>';
+                            } else {
+                                formattedHTML += '<span class="incorrect">' + escapeHTML(targetCode[i]) + '</span>';
+                            }
+                        }
+                        inputIdx++;
+                    } else {
+                        if (!cursorInjected && inputIdx === userInput.length) {
+                            formattedHTML += '<span class="visual-cursor"></span>';
+                            cursorInjected = true;
+                        }
+                        formattedHTML += '<span class="pending">' + escapeHTML(targetCode[i]) + '</span>';
+                    }
+                }
+            }
+
+            if (!cursorInjected) {
+                formattedHTML += '<span class="visual-cursor"></span>';
+            }
+
+            overlayPre.innerHTML = formattedHTML;
+            errorLabel.innerText = errorCount;
+            
+            let totalCodeChars = 0;
+            for (let i = 0; i < targetCode.length; i++) {
+                if (!isCommentChar[i]) totalCodeChars++;
+            }
+            const progressPercentage = Math.min(100, Math.round((userInput.length / totalCodeChars) * 100));
+            progressLabel.innerText = progressPercentage + '%';
+        });
+
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+
+        function toggleReference() {
+            if (referenceModal.style.display === 'none' || referenceModal.style.display === '') {
+                referenceContent.innerHTML = escapeHTML(targetCode);
+                referenceModal.style.display = 'flex';
+            } else {
+                referenceModal.style.display = 'none';
+                editorTx.focus();
+            }
+        }
+
+        function handleOverlayClick(e) {
+            if (e.target === referenceModal) {
+                toggleReference();
+            }
+        }
+
+        function resetSimulator() {
+            editorTx.value = '';
+            errorLabel.innerText = '0';
+            progressLabel.innerText = '0%';
+            renderInitialText();
+            focusTextArea();
+        }
+    </script>
+</body>
+</html>
